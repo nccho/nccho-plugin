@@ -2,6 +2,13 @@
 
 Personal Claude Code plugin.
 
+설치·사용법은 [INSTALL.md](INSTALL.md) 참고. 빠른 설치:
+
+```
+/plugin marketplace add nccho/nccho-plugin
+/plugin install nccho-plugin@nccho
+```
+
 ## Skills
 
 - **blog-post** — nclovehs.blogspot.com에 올릴 글을 기존 문체(프로그래밍/여행/맛집)에 맞춰 초안으로 작성.
