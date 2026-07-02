@@ -14,6 +14,8 @@ Personal Claude Code plugin.
 - **blog-post** — nclovehs.blogspot.com에 올릴 글을 기존 문체(프로그래밍/여행/맛집)에 맞춰 초안으로 작성.
 - **team-advisor** — 중요한 의사결정/접근법 비교 요청 시 실험적 agent teams 기능으로 독립적 관점의 팀원을 구성해 자문받고, main agent 자신의 견해와 비교·종합. `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` 환경변수 필요.
 - **daily-report** — 회사 일일 업무보고서를 두괄식·성과중심·서술형 개조식으로 작성하고 `~/.claude/worklog/`의 날짜별 markdown 파일에 누적 보관. 직접 입력/문서 링크/세션 기반 3가지 입력과 작업분야·소요시간 통계 메타데이터 지원.
+- **naver-place** — 네이버 지도/플레이스 링크에서 장소 정보(시그니처 메뉴·예약 방법·주차·특색·기본정보)를 뽑아 블로그 맛집 글 소재로 요약. `fetch-blocked` 기법으로 조회하고 추출은 subagent에 위임. `blog-post`로 바로 연계.
+- **fetch-blocked** — WebFetch가 차단(403·"unable to fetch")되는 페이지를 브라우저 헤더 curl로 우회 조회하는 공용 기법. 원본 HTML을 컨텍스트에 붓지 않고 필요한 필드만(가능하면 subagent로) 추출.
 
 ## Agents
 
