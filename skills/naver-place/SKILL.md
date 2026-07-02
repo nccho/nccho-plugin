@@ -22,7 +22,7 @@ python3 <플러그인경로>/skills/naver-place/scripts/extract_naver_place.py "
 ```
 
 - 스크립트가 `m.place.naver.com`의 home/review 페이지를 브라우저 헤더 curl로 받아 `window.__APOLLO_STATE__` JSON을 파싱하고, 아래 필드를 담은 JSON 하나를 stdout으로 낸다:
-  `base`(상호/분류/주소/전화/좌표), `menus`(이름·가격·설명), `hours`, `status`, `review_count_theme`(테마별 언급 수), `booking`(예약 URL 단서), `reviews`(대표 리뷰 본문), `url`, `place_id`.
+  `base`(상호/분류/주소/전화/좌표), `menus`(이름·가격·설명), `hours`(요일별 영업시간 + `breaks` 브레이크 타임), `status`, `review_count_theme`(테마별 언급 수), `booking`(예약 URL 단서), `reviews`(대표 리뷰 본문), `url`, `place_id`.
 - 실패(빈 `base`)하면 `fetch-blocked` 스킬 절차로 폴백하거나, 사용자에게 페이지 접속이 되는지 확인한다.
 
 ## 3. 요약 정리 (출력 형식 고정)
@@ -32,6 +32,7 @@ python3 <플러그인경로>/skills/naver-place/scripts/extract_naver_place.py "
 ```
 🏷️ 기본 정보
 - 상호 / 분류 / 도로명·지번 주소 / 전화 / 영업시간(hours + status) / 좌표
+- **브레이크 타임**: `hours[].breaks`에 값이 있으면(주로 식당) "브레이크 15:00~17:00"처럼 함께 표기한다. 비어 있으면 생략하고, 식당인데 정보가 없으면 "브레이크 타임 정보 없음"으로 밝힌다.
 
 🍽️ 대표 시그니처 메뉴  ← menus 상위 3~5개, 가격 포함
 - (가장 위에 있거나 '세트'·'시그니처' 명칭 우선)

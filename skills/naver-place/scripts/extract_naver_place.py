@@ -140,8 +140,12 @@ def pick(state: dict) -> dict:
         if isinstance(o, dict):
             if o.get("__typename") == "WorkingHoursInfo":
                 bh = o.get("businessHours") or {}
+                breaks = [{"start": b.get("start"), "end": b.get("end")}
+                          for b in (o.get("breakHours") or [])
+                          if isinstance(b, dict) and b.get("start")]
                 hours.append({"day": o.get("day"),
-                              "start": bh.get("start"), "end": bh.get("end")})
+                              "start": bh.get("start"), "end": bh.get("end"),
+                              "breaks": breaks})
             if o.get("__typename") == "BusinessStatusDescription" and not status:
                 status = o.get("description") or o.get("status")
             for x in o.values():
