@@ -177,12 +177,33 @@ def reviews(state: dict, limit: int = 8) -> list:
     return out[:limit]
 
 
+def break_hints(*htmls) -> list:
+    """구조화된 breakHours 가 비어도, 식당은 브레이크 타임이 리뷰/설명 텍스트에만
+    적혀 있는 경우가 많다. '브레이크' 근처의 HH:MM-HH:MM 시간대를 폴백으로 긁는다."""
+    text = " ".join(htmls)
+    text = re.sub(r"\s+", " ", text)
+    rng = r"(\d{1,2}\s*:\s*\d{2})\s*[-~]\s*(\d{1,2}\s*:\s*\d{2})"
+    hints = []
+    for m in re.finditer(r"브레이크\s*타?임?[^0-9]{0,8}" + rng, text):
+        norm = lambda s: re.sub(r"\s+", "", s)
+        hints.append(f"{norm(m.group(1))}-{norm(m.group(2))}")
+    # 중복 제거, 최대 3개
+    seen, out = set(), []
+    for h in hints:
+        if h not in seen:
+            seen.add(h)
+            out.append(h)
+    return out[:3]
+
+
 def main():
     if len(sys.argv) < 2:
         raise SystemExit("usage: extract_naver_place.py <place_id | url>")
     pid = resolve_place_id(sys.argv[1])
-    home = apollo_state(fetch(f"https://m.place.naver.com/place/{pid}/home"))
-    rev = apollo_state(fetch(f"https://m.place.naver.com/place/{pid}/review/visitor"))
+    home_html = fetch(f"https://m.place.naver.com/place/{pid}/home")
+    rev_html = fetch(f"https://m.place.naver.com/place/{pid}/review/visitor")
+    home = apollo_state(home_html)
+    rev = apollo_state(rev_html)
     result = pick(home)
     result["place_id"] = pid
     result["url"] = f"https://map.naver.com/p/entry/place/{pid}"
@@ -191,6 +212,9 @@ def main():
     if not result["booking"]:
         result["booking"] = pick(rev).get("booking", {})
     result["reviews"] = reviews(rev)
+    # 구조화된 브레이크가 하나도 없으면 텍스트에서 폴백 추출 (리뷰 언급 기준)
+    has_struct_break = any(h.get("breaks") for h in result.get("hours", []))
+    result["break_time_from_text"] = [] if has_struct_break else break_hints(home_html, rev_html)
     print(json.dumps(result, ensure_ascii=False, indent=2))
 
 
