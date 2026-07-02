@@ -92,8 +92,20 @@ export CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1
 
 ## 업데이트
 
-저장소를 갱신한 뒤 마켓플레이스를 새로고침한다.
+### 방법 A(임시 테스트)로 로드한 경우
+
+저장소를 `git pull`로 갱신한 뒤 세션을 재시작한다.
+
+```bash
+cd ~/Repo/nccho-plugin && git pull
+claude --plugin-dir ~/Repo/nccho-plugin
+```
+
+### 방법 B(정식 설치)로 설치한 경우
+
+마켓플레이스를 새로고침한 뒤 플러그인을 재설치한다. 새로고침만으로는 설치된 플러그인 버전이 갱신되지 않는다.
 
 ```
 /plugin marketplace update nccho
+/plugin install nccho-plugin@nccho
 ```
