@@ -103,9 +103,12 @@ claude --plugin-dir ~/Repo/nccho-plugin
 
 ### 방법 B(정식 설치)로 설치한 경우
 
-마켓플레이스를 새로고침한 뒤 플러그인을 재설치한다. 새로고침만으로는 설치된 플러그인 버전이 갱신되지 않는다.
+마켓플레이스를 새로고침한 뒤 플러그인을 업데이트한다. 새로고침만으로는 설치된 플러그인 버전이 갱신되지 않는다.
 
 ```
 /plugin marketplace update nccho
-/plugin install nccho-plugin@nccho
+/plugin update nccho-plugin@nccho
 ```
+
+- `install`은 이미 설치돼 있으면 거부하므로 업데이트에는 쓸 수 없다. 전용 `update` 명령을 사용한다.
+- `update`는 최신 버전으로 교체하며 적용에는 재시작이 필요하다.
