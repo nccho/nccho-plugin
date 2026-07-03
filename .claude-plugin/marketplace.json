@@ -11,7 +11,7 @@
       "name": "nccho-plugin",
       "source": "./",
       "description": "Personal Claude Code plugin: blog-post / team-advisor / daily-report / naver-place / fetch-blocked skills, model-routing agents (searcher/implementer/analyzer), and SessionStart/SubagentStart hooks.",
-      "version": "0.7.0"
+      "version": "0.7.1"
     }
   ]
 }
