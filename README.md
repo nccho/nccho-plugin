@@ -18,6 +18,7 @@ Personal Claude Code plugin.
 - **daily-report** — 회사 일일 업무보고서를 두괄식·성과중심·서술형 개조식으로 작성하고 `~/.claude/worklog/`의 날짜별 markdown 파일에 누적 보관. 직접 입력/문서 링크/세션 기반 3가지 입력과 작업분야·소요시간 통계 메타데이터 지원.
 - **naver-place** — 네이버 지도/플레이스 링크에서 장소 정보(시그니처 메뉴·예약 방법·주차·특색·기본정보)를 뽑아 블로그 맛집 글 소재로 요약. `fetch-blocked` 기법으로 조회하고 추출은 subagent에 위임. `blog-post`로 바로 연계.
 - **fetch-blocked** — WebFetch가 차단(403·"unable to fetch")되는 페이지를 브라우저 헤더 curl로 우회 조회하는 공용 기법. 원본 HTML을 컨텍스트에 붓지 않고 필요한 필드만(가능하면 subagent로) 추출.
+- **youtube-bench** — 유튜브 게임 영상을 yt-dlp + ffmpeg 2-pass(저해상 그리드 훑기 → 관심 시점만 고해상 추출)로 캡처해 벤치마킹 보고서(마크다운 + 선별 프레임)를 `docs/research/benchmark/<slug>/`에 만든다. 타 게임 UI·연출 화면 정보 획득용, 원본 영상은 임시 폴더에만 두고 산출물만 보존.
 
 ## Agents
 
