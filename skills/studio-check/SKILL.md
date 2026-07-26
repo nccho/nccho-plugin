@@ -70,10 +70,15 @@ Play 사이클을 반복하는 작업에서 특히 후자가 없으면 계속 �
 
 ## 2. 코드가 실제로 Studio에 갔는가 (가장 흔한 착각)
 
-동기화 여부는 **바이트 길이 비교**가 가장 빠르고 확실하다.
+### 2-1. 빠른 대조 — 반드시 CR을 지우고 잰다
+
+Studio의 `Source`는 **CRLF를 LF로 정규화**해서 담는다. 그래서 `wc -c`(원본 바이트)와
+`#Source`를 그냥 비교하면 **CRLF 파일마다 줄 수만큼 어긋나 오탐**이 난다. 한 저장소
+안에서도 줄바꿈이 섞이므로(에디터·스크립트에 따라 다름) 어떤 파일은 맞고 어떤 파일은
+틀리게 나와 더 헷갈린다. **CR을 지우고 재라.**
 
 ```bash
-wc -c < src/shared/YourModule.luau
+tr -d '\r' < src/shared/YourModule.luau | wc -c
 ```
 
 ```lua
@@ -81,8 +86,22 @@ wc -c < src/shared/YourModule.luau
 return #game.ReplicatedStorage.Shared.YourModule.Source
 ```
 
-두 값이 다르면 아직 안 갔다. 같아질 때까지 §1-C를 먼저 해결하고, **그 전에는
-어떤 Play 검증도 의미가 없다**(옛 코드를 테스트하게 된다).
+두 값이 다르면 아직 안 갔다.
+
+### 2-2. 결정적 판정 — 길이 말고 내용
+
+길이는 우연히 같을 수도, 인코딩 때문에 다를 수도 있다. 확실히 하려면 **방금 편집한
+고유 문자열**을 찾는다. 추가한 것은 `FOUND`, 삭제한 것은 `absent`여야 한다.
+
+```lua
+local src = game.ServerScriptService.Server.YourModule.Source
+return string.format("new=%s old=%s",
+    tostring(src:find("방금_추가한_함수명", 1, true) ~= nil),
+    tostring(src:find("방금_지운_함수명", 1, true) ~= nil))
+```
+
+동기화가 확인될 때까지 §1-C를 먼저 해결하고, **그 전에는 어떤 Play 검증도 의미가
+없다**(옛 코드를 테스트하게 된다).
 
 ## 3. 리그·피직스 헬스체크 (Play)
 
@@ -167,6 +186,10 @@ task.wait(1) -- 이후 active 재측정 + 손 이동으로 애니 확인(§4)
   `Animator.AnimationPlayed`로 **사실을 기록**해 두고 읽는다.
 - **텔레그래프형 스킬은 물리 변화가 없다.** "돌진"이 속도 스파이크일 거라 가정했다가
   틀렸다 — 실제로는 Highlight 표시였다. 구현을 먼저 읽고 관측 대상을 정한다.
+- **`wc -c`와 `#Source`는 CRLF 때문에 어긋난다.** Studio는 LF로 정규화한다(§2-1).
+  정상 동기화된 프로젝트를 "미동기화"로 오판하면 **있지도 않은 연결 문제를 쫓게 되므로**
+  실제 고장보다 나쁘다. `grep -c $'\r'`로 CRLF를 세는 것도 믿지 말 것 — LF 전용 파일에도
+  걸리는 걸 확인했다. 신뢰할 수 있는 건 `tr -d '\r' | wc -c` 비교와 내용 검색뿐이다.
 
 ## 5. 보고
 
