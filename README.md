@@ -19,6 +19,7 @@ Personal Claude Code plugin.
 - **naver-place** — 네이버 지도/플레이스 링크에서 장소 정보(시그니처 메뉴·예약 방법·주차·특색·기본정보)를 뽑아 블로그 맛집 글 소재로 요약. `fetch-blocked` 기법으로 조회하고 추출은 subagent에 위임. `blog-post`로 바로 연계.
 - **fetch-blocked** — WebFetch가 차단(403·"unable to fetch")되는 페이지를 브라우저 헤더 curl로 우회 조회하는 공용 기법. 원본 HTML을 컨텍스트에 붓지 않고 필요한 필드만(가능하면 subagent로) 추출.
 - **youtube-bench** — 유튜브 게임 영상을 yt-dlp + ffmpeg 2-pass(저해상 그리드 훑기 → 관심 시점만 고해상 추출)로 캡처해 벤치마킹 보고서(마크다운 + 선별 프레임)를 `docs/research/benchmark/<slug>/`에 만든다. 타 게임 UI·연출 화면 정보 획득용, 원본 영상은 임시 폴더에만 두고 산출물만 보존.
+- **studio-check** — Roblox 개발 루프가 "고쳤는데 인게임이 안 바뀐다"에 빠졌을 때 연결 3층(MCP 채널 / rojo serve / rojo 플러그인)을 위에서부터 좁혀 진단·복구하고, Play에서 리그·피직스를 헬스체크한다. "프로세스 생존 ≠ 응답"(엔드포인트로 판정)과 "동기화 = 소스 바이트 길이 비교"가 핵심. 실측으로 겪은 계측 함정(execute_luau의 require 캐시 미공유, Motor6D↔AnimationConstraint, MoveDirection 0, Length 0)을 증상→원인 표로 수록해 오진을 막는다.
 
 ## Agents
 
