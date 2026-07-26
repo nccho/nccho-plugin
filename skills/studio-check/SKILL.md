@@ -92,10 +92,19 @@ return #game.ReplicatedStorage.Shared.YourModule.Source
 for _, m in workspace.Mobs:GetChildren() do
     local hum = m:FindFirstChildOfClass("Humanoid")
     if hum then
-        local root = hum.RootPart
-        print(string.format("%s state=%s hip=%.2f rig=%s root=%s/%s",
+        -- Count BOTH joint kinds: a rig carrying both has redundant joints (below).
+        local motors, constraints, active = 0, 0, 0
+        for _, d in m:GetDescendants() do
+            if d:IsA("Motor6D") then
+                motors += 1
+            elseif d:IsA("AnimationConstraint") then
+                constraints += 1
+                if d.Active then active += 1 end
+            end
+        end
+        print(string.format("%s state=%s hip=%.2f rig=%s motor=%d constraint=%d active=%d",
             m.Name, tostring(hum:GetState()), hum.HipHeight, tostring(hum.RigType),
-            tostring(root and root.CanCollide), tostring(root and root.Massless)))
+            motors, constraints, active))
     end
 end
 ```
@@ -108,6 +117,26 @@ end
 | HipHeight를 넣었는데 계속 0 | `Humanoid.AutomaticScalingEnabled`가 **부모 연결 시 0으로 되돌림** | 먼저 `false`로 끄고 설정 |
 | 애니는 재생되는데 몸이 안 움직임 | 리그에 조인트가 없음 / 관절 타입 불일치(§4) | 조인트 수 확인 |
 | 걷기 애니가 안 바뀜 | `Humanoid.Running` 미발화, `MoveDirection`이 0 (§4) | 물리 속도로 판정 |
+| `motor>0`이면서 `constraint>0` | **조인트 이중화** — 엔진이 만든 AnimationConstraint 위에 Motor6D를 또 만듦 | 수동 Motor6D 제거(아래) |
+| `constraint>0`인데 `active=0` | Motor6D가 제약을 **가리고 있음**(중복의 증상) | 동일 |
+
+**조인트 이중화 — 실제로 물린 사례.** `CreateHumanoidModelFromDescription`으로 만든
+리그는 **부모 연결 시 엔진이 AnimationConstraint를 자동 생성**한다(Avatar Joint Upgrade).
+그런데 **Edit 모드에서 프로브하면 조인트가 0으로 보이고** `BuildRigFromAttachments()`도
+0개를 만든다 — 제약이 런타임에만 생기기 때문이다. 이걸 "엔진이 안 만들어준다"로 오독해
+Motor6D를 손으로 만들면, 몹마다 같은 관절에 **조인트가 두 벌** 붙는다(기능은 멀쩡해서
+드러나지 않는다).
+
+판별: 위 덤프에서 `motor`와 `constraint`가 **둘 다 0보다 크면** 중복이다. 확인 실험 —
+Motor6D를 제거하면 `active`가 0에서 전부 살아나고 애니는 그대로 돈다.
+
+```lua
+-- Play에서: 수동 Motor6D를 걷어내고 제약이 깨어나는지 본다
+for _, d in mob:GetDescendants() do
+    if d:IsA("Motor6D") then d:Destroy() end
+end
+task.wait(1) -- 이후 active 재측정 + 손 이동으로 애니 확인(§4)
+```
 
 `screen_capture`로 배치도 함께 본다(방향 반대·다른 오브젝트에 박힘 등은 수치로 안 잡힌다).
 
@@ -121,10 +150,15 @@ end
 - **`execute_luau`는 러닝 스크립트와 require 캐시를 공유하지 않는다.** Play/Server에서
   실행해도 모듈 **상태**(레지스트리 테이블 등)는 빈 새 인스턴스다 → 상태 의존 API가
   조용히 no-op. **엔진 오브젝트를 직접 조작**하거나 관측 가능한 부수효과로 판정할 것.
-- **관절 타입이 리그마다 다르다.** 플레이어 R15는 `AnimationConstraint`(Avatar Joint
-  Upgrade 기본), 손으로 만든 NPC 리그는 `Motor6D`. **`IsA("Motor6D")`는 false**를
-  반환한다. 관절 움직임은 **타입 무관 방식**으로 재라 — 예: 몸통 로컬 좌표계에서 손
-  위치 변화.
+- **관절 타입이 리그마다 다르고, 한쪽이 잠들어 있을 수 있다.** 플레이어 R15는
+  `AnimationConstraint`(Avatar Joint Upgrade 기본). **`IsA("Motor6D")`는 false**를
+  반환하므로 Motor6D를 전제한 코드·계측은 전부 헛돈다. 둘이 공존하면 Motor6D가 이기고
+  제약은 `Active=false`로 잠긴다(§3 이중화). 관절 움직임은 **타입 무관 방식**으로 재라 —
+  예: 몸통 로컬 좌표계에서 손 위치 변화.
+- **래그돌은 제약 유무로 갈린다.** `AnimationConstraint`가 있으면 `IsKinematic=false`
+  한 줄이면 되고, 순수 Motor6D 리그는 조인트를 끊고 `BallSocketConstraint`로 갈아야 한다.
+  **잠든 제약이 이미 있는데 Motor6D 때문에 "우리는 Motor6D라 어렵다"고 결론 내리기 쉽다** —
+  먼저 세어 보라.
 - **서버 `MoveTo` 구동 NPC는 `MoveDirection`이 0**이고 `Humanoid.Running`도 안 뜬다.
   25스터드를 걷는 중에도 0.00이었다. → `AssemblyLinearVelocity`의 수평 성분을 쓴다.
 - **`AnimationTrack.Length`는 로드 직후 0**이다. `ContentProvider:PreloadAsync` 후 읽거나
