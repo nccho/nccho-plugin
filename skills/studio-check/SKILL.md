@@ -26,7 +26,19 @@ Roblox 개발 루프가 **"고쳤는데 안 바뀐다"** 상태에 빠졌을 때
 | B | rojo serve (디스크↔네트워크) | `/api/rojo`가 **200** | §1-B |
 | C | rojo 플러그인 (네트워크↔Studio) | 디스크와 Studio의 **소스 길이 일치**(§2) | §1-C |
 
+프로젝트에 `scripts/studio-preflight.sh`가 있으면 **먼저 그것부터 돌린다** — B와 플러그인
+사망 로그를 MCP 없이 판정한다. **C는 셸로 판정 불가**(아래 경고) → 표대로 확인한다.
+
+⚠️ **`netstat`의 ESTABLISHED를 C의 근거로 쓰지 말 것.** Rojo 패널 Disconnect 후에도
+Studio는 `:34872` 소켓을 계속 물고 있고, 그 상태에서 동기화는 죽어 있다(2026-07-30 실측:
+링크 1개 · 새 파일 미도달). **가짜 ✅는 없느니만 못하다**(§4).
+
 ### 1-A. MCP 채널
+
+**첫 호출은 `list_roblox_studios` → `set_active_studio`다.** active studio가 미설정이면
+("a heuristic will be used" 경고) `screen_capture`가 타임아웃한다 — 2026-07-30에 원인
+확정·해소. 설정 후에는 **Edit·Play 양쪽에서 캡처가 된다**(도구 설명의 "edit-time"에
+속아 "Play 중엔 캡처 불가"로 결론 내지 말 것).
 
 `get_studio_state` 호출. 실패 유형별 대응:
 
@@ -61,12 +73,29 @@ cd <프로젝트> && rojo serve
 ### 1-C. rojo 플러그인 연결
 
 serve는 200인데 §2의 소스 길이가 다르면 플러그인이 끊긴 것이다. 유저에게 Rojo 패널
-→ **Connect** 요청. 재발 방지로 **Settings에서 아래 둘을 켜달라고 안내**한다(기본 OFF):
+→ **Connect** 요청. 원인은 둘 중 하나이고, **원인마다 조치가 다르다.**
 
-- **`Auto Reconnect`** — place 열 때 자동 재연결
-- **`Auto Connect Playtest Server`** — Play 시작/정지에도 연결 유지
+**(a) 플러그인이 죽었다 — Studio 가동 10~15시간마다.** Studio 로그에 남는다:
 
-Play 사이클을 반복하는 작업에서 특히 후자가 없으면 계속 끊긴다.
+```bash
+ls -t "$LOCALAPPDATA/Roblox/logs"/*_Studio_*.log | head -1 | xargs grep -c "stack overflow"
+```
+
+`C stack overflow ... Rojo.Packages.Promise`가 잡히면 그 시각 이후 동기화는 죽어 있었다
+(2026-07-24~30 사이 7회 관측: 가동 9.7·10.4·20.2·23.2·43.6·80·93시간). **`serve`는 그동안
+200을 계속 반환**하므로 서버만 보면 정상으로 보인다 — 이게 이 실패가 조용한 이유다.
+Rojo 7.7.0 체인지로그에 해당 수정 없음 → 실질적 예방은 **Studio를 며칠씩 켜두지 않는 것**.
+가동 8시간을 넘겼고 긴 검증이 예정돼 있으면 **먼저 Studio 재시작을 권한다.**
+
+**(b) 재연결은 됐는데 확인 모달에서 멈췄다.** `Confirmation Behavior`가 `Initial`이고
+변경이 `Large Changes Threshold`(기본 5)를 넘으면, 연결 후 **유저가 Accept를 누를 때까지**
+동기화가 대기한다. 자동 재연결이 성공했는데도 화면은 옛 코드다. 반복 작업이면 Rojo 패널
+→ Settings → **Confirmation Behavior = `Never`**를 권한다.
+
+⚠️ **`Auto Reconnect` / `Auto Connect Playtest Server`는 예방책이 아니다.** 이 스킬의
+이전 판이 "켜라"고 안내했지만, 2026-07-30 실측에서 **둘 다 이미 ON인 채로 계속 끊기고
+있었다**. 켜져 있는지는 확인하되(설정 실물 = `%LOCALAPPDATA%\Roblox\<userId>\
+InstalledPlugins\0\settings.json`의 `Rojo_*` 키), 거기서 진단을 멈추지 말 것.
 
 ## 2. 코드가 실제로 Studio에 갔는가 (가장 흔한 착각)
 
@@ -88,6 +117,9 @@ return #game.ReplicatedStorage.Shared.YourModule.Source
 
 두 값이 다르면 아직 안 갔다.
 
+⚠️ **길이가 같아도 끊겨 있을 수 있다** — 마지막 편집 이후 그 파일이 안 바뀌었으면 디스크와
+Studio가 당연히 같다. 방금 편집한 파일로 재거나, §2-3으로 간다.
+
 ### 2-2. 결정적 판정 — 길이 말고 내용
 
 길이는 우연히 같을 수도, 인코딩 때문에 다를 수도 있다. 확실히 하려면 **방금 편집한
@@ -99,6 +131,23 @@ return string.format("new=%s old=%s",
     tostring(src:find("방금_추가한_함수명", 1, true) ~= nil),
     tostring(src:find("방금_지운_함수명", 1, true) ~= nil))
 ```
+
+### 2-3. 편집한 파일이 없을 때 — 새 파일 프로브
+
+무엇이 최근에 바뀌었는지 모르면 **디스크에 임시 모듈을 만들어** Studio에 뜨는지 본다.
+끊긴 상태에서 확실히 음성이 나오는 유일한 검사다(2026-07-30 실측으로 채택 — 이 검사만이
+"ESTABLISHED는 있는데 동기화는 죽음"을 잡아냈다).
+
+```bash
+printf 'return {}\n' > src/shared/_SyncProbe.luau
+```
+
+```lua
+-- execute_luau (Edit)
+return game.ReplicatedStorage.Shared:FindFirstChild("_SyncProbe") ~= nil
+```
+
+`false`면 끊긴 것. 확인 후 파일을 지우고, **삭제도 반영되는지** 같은 방식으로 본다.
 
 동기화가 확인될 때까지 §1-C를 먼저 해결하고, **그 전에는 어떤 Play 검증도 의미가
 없다**(옛 코드를 테스트하게 된다).
@@ -186,6 +235,9 @@ task.wait(1) -- 이후 active 재측정 + 손 이동으로 애니 확인(§4)
   `Animator.AnimationPlayed`로 **사실을 기록**해 두고 읽는다.
 - **텔레그래프형 스킬은 물리 변화가 없다.** "돌진"이 속도 스파이크일 거라 가정했다가
   틀렸다 — 실제로는 Highlight 표시였다. 구현을 먼저 읽고 관측 대상을 정한다.
+- **`netstat`의 ESTABLISHED는 "Rojo 연결됨"이 아니다.** Disconnect 후에도 Studio는 소켓을
+  물고 있다. 여기서는 오탐이 **양성**으로 난다 — "연결됨"을 보고 안심한 채 옛 코드로
+  Play 검증을 돌게 된다. 계층 C는 §2-3으로만 판정한다.
 - **`wc -c`와 `#Source`는 CRLF 때문에 어긋난다.** Studio는 LF로 정규화한다(§2-1).
   정상 동기화된 프로젝트를 "미동기화"로 오판하면 **있지도 않은 연결 문제를 쫓게 되므로**
   실제 고장보다 나쁘다. `grep -c $'\r'`로 CRLF를 세는 것도 믿지 말 것 — LF 전용 파일에도
